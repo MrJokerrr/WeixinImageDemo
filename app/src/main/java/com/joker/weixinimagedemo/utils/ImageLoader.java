@@ -1,10 +1,14 @@
 package com.joker.weixinimagedemo.utils;
 
+import android.annotation.TargetApi;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.v4.util.LruCache;
+import android.util.DisplayMetrics;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import java.util.LinkedList;
@@ -80,7 +84,7 @@ public class ImageLoader {
                     @Override
                     public void handleMessage(Message msg) {
                         // 通过线程池取出一个任务
-
+                        mThreadPool.execute(getTask());
                     }
                 };
                 Looper.loop();
@@ -105,11 +109,24 @@ public class ImageLoader {
     }
 
     /**
+     * 从任务队列取出一个方法
+     * @return
+     */
+    public Runnable getTask() {
+        if (mType == Type.FIFO){
+            return mTaskQueue.removeFirst();
+        }else if (mType == Type.LIFO){
+            return mTaskQueue.removeLast();
+        }
+        return null;
+    }
+
+    /**
      * 加载显示图片
      * @param path
      * @param imageView
      */
-    public void loadImage(String path, ImageView imageView){
+    public void loadImage(String path, final ImageView imageView){
         // 防止调用多次和图片错位,给ImageView设置一个tag
         imageView.setTag(path);
         if (mUIHandler == null){
@@ -139,7 +156,64 @@ public class ImageLoader {
             holder.path = path;
             message.obj = holder;
             mUIHandler.sendMessage(message);
+        }else {
+            addTasks(new Runnable() {
+                @Override
+                public void run() {
+                    // 加载图片
+                    // 图片的压缩
+                    // 1. 获取图片要显示的大小
+                    ImageSize imageSize = getImageViewSize(imageView);
+                }
+            });
         }
+    }
+
+    /**
+     * 获取图片显示的大小
+     * @param imageView
+     * @return ImageSize中携带了图片的宽和高
+     */
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private ImageSize getImageViewSize(ImageView imageView) {
+        ImageSize imageSize = new ImageSize();
+        // 获取屏幕的宽度
+        DisplayMetrics metrics = imageView.getContext().getResources().getDisplayMetrics();
+        ViewGroup.LayoutParams lp = imageView.getLayoutParams();
+//        int width = (lp.width == ViewGroup.LayoutParams.WRAP_CONTENT? 0 : imageView.getWidth());
+        int width = imageView.getWidth();
+        if (width <= 0){
+            width = lp.width; // 获取imageview在layout中声明的宽度
+        }
+        if (width <= 0){
+            width = imageView.getMaxWidth(); // 检查最大值
+        }
+        if (width <= 0){
+            width = metrics.widthPixels;
+        }
+
+        int height = imageView.getHeight();
+        if (height <= 0){
+            height = lp.height; // 获取imageview在layout中声明的宽度
+        }
+        if (height <= 0){
+            height = imageView.getMaxHeight(); // 检查最大值
+        }
+        if (height <= 0){
+            height = metrics.heightPixels;
+        }
+
+        // 把宽和高设置给imageSize
+        imageSize.width = width;
+        imageSize.height = height;
+
+        return imageSize;
+    }
+
+
+    private void addTasks(Runnable runnable) {
+        mTaskQueue.add(runnable);
+        mPoolThreadHandler.sendEmptyMessage(0);
     }
 
     /**
@@ -151,10 +225,18 @@ public class ImageLoader {
         return mLruCache.get(key);
     }
 
+    /**
+     * 加载图片时,message中需要传递的数据
+     */
     private class ImgBeanHolder{
         Bitmap bitmap;
         ImageView imageView;
         String path;
+    }
+
+    private class ImageSize{
+        int width;
+        int height;
     }
 
 }
