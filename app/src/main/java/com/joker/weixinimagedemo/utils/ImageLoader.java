@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.v4.util.LruCache;
+import android.widget.ImageView;
 
 import java.util.LinkedList;
 import java.util.concurrent.ExecutorService;
@@ -102,4 +103,58 @@ public class ImageLoader {
         mTaskQueue = new LinkedList<Runnable>();
         mType = type;
     }
+
+    /**
+     * 加载显示图片
+     * @param path
+     * @param imageView
+     */
+    public void loadImage(String path, ImageView imageView){
+        // 防止调用多次和图片错位,给ImageView设置一个tag
+        imageView.setTag(path);
+        if (mUIHandler == null){
+            mUIHandler = new Handler(){
+                @Override
+                public void handleMessage(Message msg) {
+                    // 获取得到的图片,为ImageView回调设置图片
+                    ImgBeanHolder holder = (ImgBeanHolder) msg.obj;
+                    Bitmap bm = holder.bitmap;
+                    ImageView imageView = holder.imageView;
+                    String path = holder.path;
+                    // 判断之前设置的path和获得的path是否是同一个
+                    if (imageView.getTag().toString().equals(path)){
+                        imageView.setImageBitmap(bm);
+                    }
+                }
+            };
+        }
+
+        // 根据url在缓存中获取bitmap对象
+        Bitmap bm = getBitmapFromLruCache(path);
+        if (bm != null){
+            Message message = Message.obtain();
+            ImgBeanHolder holder = new ImgBeanHolder();
+            holder.bitmap = bm;
+            holder.imageView = imageView;
+            holder.path = path;
+            message.obj = holder;
+            mUIHandler.sendMessage(message);
+        }
+    }
+
+    /**
+     * 根据path在LruCache中获取bitmap对象
+     * @param key
+     * @return
+     */
+    private Bitmap getBitmapFromLruCache(String key) {
+        return mLruCache.get(key);
+    }
+
+    private class ImgBeanHolder{
+        Bitmap bitmap;
+        ImageView imageView;
+        String path;
+    }
+
 }
