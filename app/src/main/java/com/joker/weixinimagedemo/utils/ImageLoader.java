@@ -1,9 +1,7 @@
 package com.joker.weixinimagedemo.utils;
 
-import android.annotation.TargetApi;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -12,6 +10,7 @@ import android.util.DisplayMetrics;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import java.lang.reflect.Field;
 import java.util.LinkedList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,6 +71,17 @@ public class ImageLoader {
             synchronized (ImageLoader.class){
                 if (loader == null){
                     loader = new ImageLoader(DEFAULT_THREAD_COUNT, Type.LIFO);
+                }
+            }
+        }
+        return loader;
+    }
+
+    public static ImageLoader getInstance(int threadCount, Type type){
+        if (loader == null){
+            synchronized (ImageLoader.class){
+                if (loader == null){
+                    loader = new ImageLoader(threadCount, type);
                 }
             }
         }
@@ -211,7 +221,6 @@ public class ImageLoader {
      * @param imageView
      * @return ImageSize中携带了图片的宽和高
      */
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private ImageSize getImageViewSize(ImageView imageView) {
         ImageSize imageSize = new ImageSize();
         // 获取屏幕的宽度
@@ -223,7 +232,8 @@ public class ImageLoader {
             width = lp.width; // 获取imageview在layout中声明的宽度
         }
         if (width <= 0){
-            width = imageView.getMaxWidth(); // 检查最大值
+           // width = imageView.getMaxWidth(); // 检查最大值
+            width = getImageViewFieldValue(imageView, "mMaxWidth");
         }
         if (width <= 0){
             width = metrics.widthPixels;
@@ -234,7 +244,8 @@ public class ImageLoader {
             height = lp.height; // 获取imageview在layout中声明的宽度
         }
         if (height <= 0){
-            height = imageView.getMaxHeight(); // 检查最大值
+            //height = imageView.getMaxHeight(); // 检查最大值
+            height = getImageViewFieldValue(imageView, "mMaxHeight");
         }
         if (height <= 0){
             height = metrics.heightPixels;
@@ -245,6 +256,27 @@ public class ImageLoader {
         imageSize.height = height;
 
         return imageSize;
+    }
+
+    /**
+     * 通过反射获取ImageView的某个属性值
+     * @param object
+     * @param fieldName
+     * @return
+     */
+    private static int getImageViewFieldValue(Object object, String fieldName){
+        int value = 0;
+        try {
+            Field field = ImageView.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            int fieldValue = field.getInt(object);
+            if (fieldValue > 0 && fieldValue < Integer.MAX_VALUE){
+                value = fieldValue;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return value;
     }
 
     /**
