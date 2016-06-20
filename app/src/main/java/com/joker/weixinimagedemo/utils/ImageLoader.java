@@ -2,6 +2,7 @@ package com.joker.weixinimagedemo.utils;
 
 import android.annotation.TargetApi;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -126,7 +127,7 @@ public class ImageLoader {
      * @param path
      * @param imageView
      */
-    public void loadImage(String path, final ImageView imageView){
+    public void loadImage(final String path, final ImageView imageView){
         // 防止调用多次和图片错位,给ImageView设置一个tag
         imageView.setTag(path);
         if (mUIHandler == null){
@@ -164,6 +165,9 @@ public class ImageLoader {
                     // 图片的压缩
                     // 1. 获取图片要显示的大小
                     ImageSize imageSize = getImageViewSize(imageView);
+                    // 2. 压缩图片
+                    Bitmap bm = decodeSampledBitmapFromPath(path, imageSize.width, imageSize.height);
+
                 }
             });
         }
@@ -208,6 +212,46 @@ public class ImageLoader {
         imageSize.height = height;
 
         return imageSize;
+    }
+
+    /**
+     * 对图片进行压缩操作, 通过options对图片进行压缩
+     * @param path
+     * @param width
+     * @param height
+     * @return
+     */
+    private Bitmap decodeSampledBitmapFromPath(String path, int width, int height) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        // 不加载图片到内存,仅仅是获得图片的宽和高
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(path,options);
+        options.inSampleSize = caculateInSampleSize(options, width, height);
+        // 使用获取得到的inSampleSize再次解析图片
+        options.inJustDecodeBounds = false;
+        Bitmap bitmap = BitmapFactory.decodeFile(path, options);
+        return bitmap;
+    }
+
+    /**
+     * 根据需求的宽和高以及图片实际的宽和高计算sampleSize
+     * @param options
+     * @param reqWwidth
+     * @param reqHeight
+     * @return
+     */
+    private int caculateInSampleSize(BitmapFactory.Options options, int reqWwidth, int reqHeight) {
+        int width = options.outWidth;
+        int height = options.outHeight;
+
+        int inSampleSize = 1;
+        if (width > reqWwidth || height > reqHeight){
+            int widthRadio = Math.round(width * 1.0f / reqWwidth);
+            int heightRadio = Math.round(height * 1.0f / reqHeight);
+            // 获取大的值
+            inSampleSize = Math.max(widthRadio, heightRadio);
+        }
+        return inSampleSize;
     }
 
 
